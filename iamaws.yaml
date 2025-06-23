@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+
+Description: Kubecost Sub-Account Template
+
+Parameters:
+  MasterPayerAccountID:
+    Description: Your AWS masterpayer account
+    Type: String
+  SpotDataFeedBucketName:
+    Description: Optional. The bucket where the spot data feed is sent from the “Setting up the Spot Data feed” step.
+    Type: String
+
+Conditions:
+  HasSpotFeedBucketName: !Not [ !Equals [ !Ref SpotDataFeedBucketName, "" ] ]
+
+Resources:
+  KubecostUser:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'KubecostUser'
+  KubecostRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'KubecostRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'ec2.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+  AssumeRolePolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      Users:
+        - !Ref KubecostUser
+      Roles:
+        - !Ref KubecostRole
+      PolicyName: 'kubecost-assume-masterpayer'
+      PolicyDocument:
+        Statement:
+        - Sid: AssumeRoleInMasterPayer
+          Effect: Allow
+          Action: 'sts:AssumeRole'
+          Resource: !Sub "arn:aws:iam::${MasterPayerAccountID}:role/KubecostRole-${AWS::AccountId}"
+
+  SpotFeedPolicy:
+    Type: 'AWS::IAM::Policy'
+    Condition: HasSpotFeedBucketName
+    Properties:
+      Users:
+        - !Ref KubecostUser
+      Roles:
+        - !Ref KubecostRole
+      PolicyName: 'kubecost-spot-data-feed-access'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: SpotDataAccess
+          Effect: Allow
+          Action:
+          - s3:ListAllMyBuckets
+          - s3:ListBucket
+          - s3:HeadBucket
+          - s3:HeadObject
+          - s3:List*
+          - s3:Get*
+          Resource: "*"

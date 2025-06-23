@@ -1,0 +1,57 @@
+# oauth2-proxy-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy
+  namespace: kubecost
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oauth2-proxy
+  template:
+    metadata:
+      labels:
+        app: oauth2-proxy
+    spec:
+      containers:
+      - name: oauth2-proxy
+        image: quay.io/oauth2-proxy/oauth2-proxy:v7.4.0
+        args:
+          - --provider=gitlab
+          - --email-domain=*
+          - --upstream=http://kubecost-cost-analyzer.kubecost.svc.cluster.local:9090
+          - --http-address=0.0.0.0:4180
+          - --cookie-secure=true
+          - --cookie-httponly=true
+          - --cookie-samesite=lax
+          - --cookie-expire=24h
+          - --skip-provider-button=false
+          - --gitlab-group=extreme-group/o3s/devsecops/solu-o-devsecfinops/gitlab-kubecost-grafana-prometheus
+          - --pass-access-token=true
+          - --pass-user-headers=true
+          - --reverse-proxy=true
+        env:
+        - name: OAUTH2_PROXY_CLIENT_ID
+          value: "9fd012dcb6ad655d23be9884eb04c3040a0e5a5edccd6399876c6ac0815f9ff8"
+        - name: OAUTH2_PROXY_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: kubecost-oidc-secret
+              key: client-secret
+        - name: OAUTH2_PROXY_COOKIE_SECRET
+          value: "dGhpc2lzYTMyYnl0ZXNlY3JldGtleWZvcmNvb2tpZXM="
+        - name: OAUTH2_PROXY_OIDC_ISSUER_URL
+          value: "https://gitlab.rancher.pointertech.digital"
+        - name: OAUTH2_PROXY_REDIRECT_URL
+          value: "https://kubecost.rancher.pointertech.digital/oauth2/callback"
+        ports:
+        - containerPort: 4180
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi

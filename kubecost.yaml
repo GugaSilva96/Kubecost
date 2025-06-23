@@ -1,0 +1,396 @@
+#################################################################
+# KUBECOST - CONFIGURAÇÃO COMPLETA COM OIDC GITLAB
+#################################################################
+
+#################################################################
+# CONFIGURAÇÕES GLOBAIS
+#################################################################
+global:
+  prometheus:
+    enabled: true
+    fqdn: http://kubecost-prometheus-server.kubecost.svc.cluster.local:80
+  grafana:
+    enabled: false
+    domainName: grafana.rancher.pointertech.digital
+    scheme: "https"
+    proxy: false
+    fqdn: "https://grafana.rancher.pointertech.digital"
+    protocol: "https"
+  # ✅ Adicionar volumes para todos os containers do pod
+  extraVolumes:
+    - name: cloud-integration-secret
+      secret:
+        secretName: kubecost-aws-secret
+  extraVolumeMounts:
+    - name: cloud-integration-secret
+      mountPath: /var/configs/cloud-integration
+      readOnly: true
+  extraEnv:
+    - name: GRAFANA_URL
+      value: "https://grafana.rancher.pointertech.digital"
+    - name: GRAFANA_EXTERNAL_URL
+      value: "https://grafana.rancher.pointertech.digital"
+    - name: DISABLE_GRAFANA
+      value: "true"
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: kubecost-aws-credentials
+          key: AWS_ACCESS_KEY_ID
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: kubecost-aws-credentials
+          key: AWS_SECRET_ACCESS_KEY
+
+#################################################################
+# SECURITY CONTEXT
+#################################################################
+securityContext:
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+  runAsNonRoot: true
+
+#################################################################
+# KUBECOST MODEL - CONFIGURAÇÃO PRINCIPAL
+#################################################################
+kubecostModel:
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "55Mi"
+    limits:
+      cpu: "800m"
+      memory: "256Mi"
+
+#################################################################
+# RBAC
+#################################################################
+rbac:
+  enabled: true
+
+#################################################################
+# STORAGE - LONGHORN
+#################################################################
+persistentVolume:
+  enabled: true
+  size: 32Gi
+  storageClass: longhorn
+  accessMode: ReadWriteOnce
+
+#################################################################
+# INGRESS - HTTPS
+#################################################################
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.kubecost.svc.cluster.local:4180/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://kubecost.rancher.pointertech.digital/oauth2/start?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups"
+  hosts:
+    - kubecost.rancher.pointertech.digital
+  tls:
+    - hosts:
+        - kubecost.rancher.pointertech.digital
+      secretName: kubecost-tls
+#################################################################
+# PROMETHEUS - INTERNO
+#################################################################
+prometheus:
+  server:
+    enabled: true
+    persistentVolume:
+      enabled: true
+      size: 32Gi
+      storageClass: longhorn
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 2000m
+        memory: 8Gi
+    retention: "15d"
+
+    extraArgs:
+      web.external-url: "https://kubecost-prometheus.rancher.pointertech.digital"
+    
+    ingress:
+      enabled: true
+      ingressClassName: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      hosts:
+        - kubecost-prometheus.rancher.pointertech.digital
+      tls:
+        - secretName: kubecost-prometheus-tls
+          hosts:
+            - kubecost-prometheus.rancher.pointertech.digital
+
+  kube-state-metrics:
+    enabled: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+  nodeExporter:
+    enabled: true
+    resources:
+      requests:
+        cpu: 5m
+        memory: 10Mi
+      limits:
+        cpu: 200m
+        memory: 50Mi
+
+#################################################################
+# GRAFANA - USAR EXTERNO (GITLAB)
+#################################################################
+grafana:
+  enabled: false
+
+#################################################################
+# NETWORK COSTS - AWS
+#################################################################
+networkCosts:
+  enabled: true
+  provider: "AWS"
+
+cloudCost:
+  enabled: true
+  extraEnv:
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: kubecost-aws-credentials
+          key: AWS_ACCESS_KEY_ID
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: kubecost-aws-credentials
+          key: AWS_SECRET_ACCESS_KEY
+    - name: AWS_DEFAULT_REGION
+      value: "us-east-1"
+
+#################################################################
+# CONFIGURAÇÕES DE PRODUTO
+#################################################################
+kubecostProductConfigs:
+  currencyCode: "USD"
+  defaultIdle: false
+  shareTenancyCosts: true
+  carbonEstimates: true
+  grafanaURL: "https://grafana.rancher.pointertech.digital"
+  cloudIntegrationSecret: kubecost-aws-secret
+  clusterName: "cluster-one"
+  customPricing:
+    enabled: true
+    provider: "custom"
+    description: "RKE2 On-Premises + AWS"
+    CPU: "0.031611"
+    spotCPU: "0.006655"
+    RAM: "0.004237"
+    spotRAM: "0.000892"
+    GPU: "0.95"
+    storage: "0.00005"
+    zoneNetworkEgress: "0.01"
+    regionNetworkEgress: "0.01"
+    internetNetworkEgress: "0.12"
+
+#################################################################
+# SECRETS E OBJETOS EXTRAS
+#################################################################
+extraObjects:
+  - apiVersion: v1
+    kind: Secret
+    metadata:
+      name: kubecost-oidc-secret
+      namespace: kubecost
+    type: Opaque
+    stringData:
+      client-secret: "gloas-7308d9b91f9fe6ca239bc522243eb5999149b5478fe5cfb0a68e8e7a2b097812"
+
+  # Secret de integração cloud (JSON)
+  - apiVersion: v1
+    kind: Secret
+    metadata:
+      name: kubecost-aws-secret
+      namespace: kubecost
+    type: Opaque
+    stringData:
+      cloud-integration.json: |
+        {
+          "aws": [
+            {
+              "athenaProjectID": "258615768844",
+              "athenaBucketName": "kubecostgitlab",
+              "athenaRegion": "us-east-1",
+              "athenaDatabase": "athenacurcfn_kubecost_git_lab",
+              "athenaTable": "kubecostgitlab",
+              "athenaWorkgroup": "primary",
+              "serviceKeyName": "kubecost-aws-credentials",
+              "athenaResultsBucket": "aws-athena-query-results-gitlabo3s"
+            }
+          ]
+        }
+
+  # Secret separado para credenciais AWS
+  - apiVersion: v1
+    kind: Secret
+    metadata:
+      name: kubecost-aws-credentials
+      namespace: kubecost
+    type: Opaque
+    stringData:
+      AWS_ACCESS_KEY_ID: "AKIATYNVTO4GE5UE3V6X"
+      AWS_SECRET_ACCESS_KEY: "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"
+
+  # OAUTH2-PROXY DEPLOYMENT
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: oauth2-proxy
+      namespace: kubecost
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: oauth2-proxy
+      template:
+        metadata:
+          labels:
+            app: oauth2-proxy
+        spec:
+          containers:
+          - name: oauth2-proxy
+            image: quay.io/oauth2-proxy/oauth2-proxy:v7.4.0
+            args:
+              - --provider=gitlab
+              - --email-domain=*
+              - --upstream=http://kubecost-cost-analyzer.kubecost.svc.cluster.local:9090
+              - --http-address=0.0.0.0:4180
+              - --gitlab-group=extreme-group/o3s/devsecops/solu-o-devsecfinops/gitlab-kubecost-grafana-prometheus
+              - --cookie-secure=true
+              - --cookie-httponly=true
+              - --cookie-samesite=lax
+              - --cookie-expire=24h
+              - --session-store-type=redis
+              - --redis-connection-url=redis://redis.kubecost.svc.cluster.local:6379
+              - --reverse-proxy=true
+              - --skip-provider-button=false
+              - --pass-access-token=true
+              - --pass-user-headers=true
+            env:
+              - name: OAUTH2_PROXY_CLIENT_ID
+                value: "9fd012dcb6ad655d23be9884eb04c3040a0e5a5edccd6399876c6ac0815f9ff8"
+              - name: OAUTH2_PROXY_CLIENT_SECRET
+                valueFrom:
+                  secretKeyRef:
+                    name: kubecost-oidc-secret
+                    key: client-secret
+              - name: OAUTH2_PROXY_COOKIE_SECRET
+                value: "dGhpc2lzYTMyYnl0ZXNlY3JldGtleWZvcmNvb2tpZXM="
+              - name: OAUTH2_PROXY_OIDC_ISSUER_URL
+                value: "https://gitlab.rancher.pointertech.digital"
+              - name: OAUTH2_PROXY_REDIRECT_URL
+                value: "https://kubecost.rancher.pointertech.digital/oauth2/callback"
+            ports:
+              - containerPort: 4180
+                name: http
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: 200m
+                memory: 128Mi
+
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: oauth2-proxy
+      namespace: kubecost
+    spec:
+      selector:
+        app: oauth2-proxy
+      ports:
+        - name: http
+          port: 4180
+          targetPort: 4180
+
+  # REDIS PARA SESSION STORAGE
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: redis
+      namespace: kubecost
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: redis
+      template:
+        metadata:
+          labels:
+            app: redis
+        spec:
+          containers:
+          - name: redis
+            image: redis:7-alpine
+            ports:
+              - containerPort: 6379
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: 200m
+                memory: 128Mi
+
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: redis
+      namespace: kubecost
+    spec:
+      selector:
+        app: redis
+      ports:
+        - port: 6379
+          targetPort: 6379
+
+  - apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: oauth2-proxy-ingress
+      namespace: kubecost
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    spec:
+      ingressClassName: nginx
+      rules:
+      - host: kubecost.rancher.pointertech.digital
+        http:
+          paths:
+          - path: /oauth2
+            pathType: Prefix
+            backend:
+              service:
+                name: oauth2-proxy
+                port:
+                  number: 4180
+      tls:
+      - hosts:
+        - kubecost.rancher.pointertech.digital
+        secretName: kubecost-tls

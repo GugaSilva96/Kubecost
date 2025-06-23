@@ -1,0 +1,14 @@
+{
+  "aws": {
+    "aws_access_key_id": "AKIATYNVTO4GE5UE3V6X",
+    "aws_secret_access_key": "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",
+    "athenaBucketName": "kubecostgitlab",
+    "athenaRegion": "us-east-1",
+    "athenaDatabase": "athenacurcfn_kubecost_git_lab",
+    "athenaTable": "kubecostgitlab",
+    "athenaWorkgroup": "primary"
+  }
+}
+
+
+  
