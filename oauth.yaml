@@ -33,14 +33,14 @@ spec:
           - --reverse-proxy=true
         env:
         - name: OAUTH2_PROXY_CLIENT_ID
-          value: "9fd012dcb6ad655d23be9884eb04c3040a0e5a5edccd6399876c6ac0815f9ff8"
+          value: ""
         - name: OAUTH2_PROXY_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
               name: kubecost-oidc-secret
               key: client-secret
         - name: OAUTH2_PROXY_COOKIE_SECRET
-          value: "dGhpc2lzYTMyYnl0ZXNlY3JldGtleWZvcmNvb2tpZXM="
+          value: ""
         - name: OAUTH2_PROXY_OIDC_ISSUER_URL
           value: "https://gitlab.rancher.pointertech.digital"
         - name: OAUTH2_PROXY_REDIRECT_URL
