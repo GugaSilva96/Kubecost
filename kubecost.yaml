@@ -218,7 +218,7 @@ extraObjects:
       namespace: kubecost
     type: Opaque
     stringData:
-      client-secret: "gloas-7308d9b91f9fe6ca239bc522243eb5999149b5478fe5cfb0a68e8e7a2b097812"
+      client-secret: ""
 
   # Secret de integração cloud (JSON)
   - apiVersion: v1
@@ -232,14 +232,14 @@ extraObjects:
         {
           "aws": [
             {
-              "athenaProjectID": "258615768844",
+              "athenaProjectID": "",
               "athenaBucketName": "kubecostgitlab",
               "athenaRegion": "us-east-1",
-              "athenaDatabase": "athenacurcfn_kubecost_git_lab",
+              "athenaDatabase": "",
               "athenaTable": "kubecostgitlab",
               "athenaWorkgroup": "primary",
-              "serviceKeyName": "kubecost-aws-credentials",
-              "athenaResultsBucket": "aws-athena-query-results-gitlabo3s"
+              "serviceKeyName": "",
+              "athenaResultsBucket": ""
             }
           ]
         }
@@ -252,8 +252,8 @@ extraObjects:
       namespace: kubecost
     type: Opaque
     stringData:
-      AWS_ACCESS_KEY_ID: "AKIATYNVTO4GE5UE3V6X"
-      AWS_SECRET_ACCESS_KEY: "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"
+      AWS_ACCESS_KEY_ID: ""
+      AWS_SECRET_ACCESS_KEY: ""
 
   # OAUTH2-PROXY DEPLOYMENT
   - apiVersion: apps/v1
@@ -299,7 +299,7 @@ extraObjects:
                     name: kubecost-oidc-secret
                     key: client-secret
               - name: OAUTH2_PROXY_COOKIE_SECRET
-                value: "dGhpc2lzYTMyYnl0ZXNlY3JldGtleWZvcmNvb2tpZXM="
+                value: ""
               - name: OAUTH2_PROXY_OIDC_ISSUER_URL
                 value: "https://gitlab.rancher.pointertech.digital"
               - name: OAUTH2_PROXY_REDIRECT_URL
